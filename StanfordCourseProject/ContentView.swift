@@ -10,9 +10,10 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         VStack {
-            pegs(colors: [.red, .green, .blue, .yellow])
-            pegs(colors: [.green, .green, .red, .blue])
-            pegs(colors: [.red, .green, .blue, .blue,])
+            pegs(colors: [.red, .green, .blue, .yellow,.purple,.pink, .yellow,.purple,.pink])
+            pegs(colors: [.green, .green, .red, .blue,.black])
+            pegs(colors: [.red, .green, .blue])
+            pegs(colors: [.red, .green, .red , .red])
         }
         .padding()
     }
@@ -23,7 +24,7 @@ struct ContentView: View {
                 Circle()
                     .foregroundStyle(colors[index])
             }
-            MatchMarkers(matches: [.exact, .inExact, .noMatch, .exact])
+            MatchMarkers(matches: [.exact, .inExact, .exact, .exact ])
         }
     }
 }

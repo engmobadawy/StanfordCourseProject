@@ -15,31 +15,39 @@ enum Match {
 
 struct MatchMarkers: View {
     var matches: [Match]
+    private var exactCount: Int { matches.count(where: { $0 == .exact }) }
+    private var foundCount: Int { matches.count(where: { $0 != .noMatch }) }
 
     var body: some View {
-        HStack {
-            VStack {
-                matchMarker(peg: 0)
-                matchMarker(peg: 1)
+        Grid {
+            // Top Row: Even indices (0, 2, 4...)
+            GridRow {
+                ForEach(0..<matches.count, id: \.self) { index in
+                    if index % 2 == 0 {
+                        matchMarker(peg: index, exactCount: exactCount, foundCount: foundCount)
+                    }
+                }
             }
-            VStack {
-                matchMarker(peg: 2)
-                matchMarker(peg: 3)
+            
+            // Bottom Row: Odd indices (1, 3, 5...)
+            GridRow {
+                ForEach(0..<matches.count, id: \.self) { index in
+                    if index % 2 != 0 {
+                        matchMarker(peg: index, exactCount: exactCount, foundCount: foundCount)
+                    }
+                }
             }
         }
     }
 
-    func matchMarker(peg: Int) -> some View {
-        let exactCount: Int = matches.count(where: { match in match == .exact })
-        let foundCount: Int = matches.count(where: { match in match != .noMatch })
-        return Circle()
-            .fill(exactCount > peg ? Color.primary : Color.clear)
-            .strokeBorder(foundCount > peg ? Color.primary : Color.clear,
-                          lineWidth: 2)
+    @ViewBuilder
+    func matchMarker(peg: Int, exactCount: Int, foundCount: Int) -> some View {
+        Circle()
+            .strokeBorder(peg < foundCount ? Color.primary : Color.clear, lineWidth: 2)
+            .background {
+                Circle()
+                    .fill(peg < exactCount ? Color.primary : Color.clear)
+            }
             .aspectRatio(1, contentMode: .fit)
     }
 }
-
-
-
-
