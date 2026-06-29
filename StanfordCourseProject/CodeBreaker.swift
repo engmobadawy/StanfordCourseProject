@@ -5,31 +5,69 @@
 //  Created by mohamed mahmoud sobhy badawy on 28/06/2026.
 //
 
-import SwiftUI
+import Foundation
+
+typealias Peg = String
 
 struct CodeBreaker {
-    var masterCode: Code = Code(kind: .master)
-    var guess: Code = Code(kind: .guess)
+    var masterCode: Code
+    var guess: Code 
     var attempts: [Code] = []
-    let pegChoices: [Peg]
+    var pegChoices: [Peg]
+    var pegCount: Int
+    var thereIsAChange = false
+    var itISANewDifferentAttempt: Bool = true
    
     
-    init(pegChoices: [Peg] = [.red, .blue, .yellow, .green]) {
-        self.pegChoices = pegChoices
-        masterCode.randomize(from: pegChoices)
+    init(pegCount: Int = Int.random(in: 3...6)) {
+            // 1. Define your two themes
+            let emojis: [Peg] = ["👽", "😘", "😂", "😍", "💁", "✌🏻"]
+            let colors: [Peg] = ["red", "blue", "yellow", "green", "purple", "orange"]
+            
+            // 2. Randomly pick one (true = emojis, false = colors)
+            let selectedTheme = Bool.random() ? emojis : colors
+            
+            // 3. Assign the rest of your variables as normal
+            self.pegChoices = selectedTheme
+            self.pegCount = pegCount
+            self.masterCode = Code(kind: .master, pegCount: pegCount)
+            self.guess = Code(kind: .guess, pegCount: pegCount)
+            
+            masterCode.randomize(from: selectedTheme)
+        }
+    
+    mutating func rest() {
+        attempts = []
+        guess.pegs = Array(repeating: Code.missing, count: pegCount)
+        itISANewDifferentAttempt = true
     }
     
     mutating func attemptGuess() {
-      
-            var attempt = guess
-            attempt.kind = .attemp(guess.match(against: masterCode))
-            attempts.append(attempt)
-          
-        
+        var attempt = guess
+        if thereIsAChange == true  {
+            
+          for guess in attempts {
+                if guess.pegs != attempt.pegs {
+                  itISANewDifferentAttempt = true
+                  break
+              }
+              itISANewDifferentAttempt = false
+              
+            }
+            if itISANewDifferentAttempt == true {
+                attempt.kind = .attemp(guess.match(against: masterCode))
+                attempts.append(attempt)
+                itISANewDifferentAttempt = false
+                thereIsAChange = false
+               
+            }
+            
+            
+        }
     }
     
     mutating func changeGuessPeg(at index: Int) {
-        
+        thereIsAChange = true
         let existingPeg = guess.pegs[index]
         if let indexOfExistingPegInPegChoices = pegChoices.firstIndex(of: existingPeg) {
             let newPeg = pegChoices[(indexOfExistingPegInPegChoices + 1) % pegChoices.count]
@@ -42,9 +80,14 @@ struct CodeBreaker {
 
 struct Code {
     var kind: Kind
-    var pegs: [Peg] = Array(repeating: Code.missing, count: 4)
+    var pegs: [Peg]
     
-    static let missing: Peg = .clear
+    static let missing: Peg = "clear"
+    init(kind: Kind , pegCount : Int) {
+        self.kind = kind
+        self.pegs = Array(repeating: Code.missing, count: pegCount)
+        
+    }
     
     enum Kind: Equatable {
         case master
@@ -54,7 +97,7 @@ struct Code {
     }
     
     mutating func randomize(from pegChoices: [Peg]) {
-        for index in pegChoices.indices {
+        for index in pegs.indices {
             pegs[index] = pegChoices.randomElement() ?? Code.missing
         }
     }
@@ -62,7 +105,7 @@ struct Code {
     var matches: [Match] {
         switch kind {
         case .attemp(let matches): return matches
-        default: return []
+        default: return Array(repeating: .noMatch, count: pegs.count)
         }
     }
     
@@ -90,4 +133,3 @@ struct Code {
     }
 }
 
-typealias Peg = Color

@@ -8,8 +8,7 @@
 import SwiftUI
 
 struct CodeBreakerView: View {
-    @State var game: CodeBreaker = CodeBreaker(pegChoices: [.green, .red, .blue, .yellow])
-    
+    @State var game: CodeBreaker = CodeBreaker()
     var body: some View {
         VStack{
             view(for: game.masterCode)
@@ -35,31 +34,68 @@ struct CodeBreakerView: View {
         .minimumScaleFactor(0.1)
     }
     
+    var restButton: some View {
+        Button("Rest") {
+            withAnimation {
+                game.rest()
+            }
+        }
+        .font(.system(size: 80))
+        .minimumScaleFactor(0.1)
+    }
     func view(for code: Code) -> some View {
         HStack {
             ForEach(code.pegs.indices, id: \.self, content: { index in
                 RoundedRectangle(cornerRadius: 10)
+                    .foregroundStyle(color(for: code.pegs[index]) ?? .clear)
                     .overlay {
                         if code.pegs[index] == Code.missing {
                             RoundedRectangle(cornerRadius: 10).strokeBorder(Color.gray)
+                        }else if color(for: code.pegs[index]) == nil {
+                             Circle()
+                                .fill(Color.clear)
+                                .overlay(
+                                    Text(code.pegs[index])
+                                        .font(.system(size: 120))
+                                        .minimumScaleFactor(9.0 / 120.0)
+                                )
                         }
                     }
                     .contentShape(Rectangle())
                     .aspectRatio(1, contentMode: .fit)
-                    .foregroundStyle(code.pegs[index])
+                  
                     .onTapGesture {
                         if code.kind == .guess {
                             game.changeGuessPeg(at: index)
                         }
                     }
             })
-
+            
             MatchMakers(matches: code.matches)
                 .overlay {
-                    if code.kind == .guess {
+                    if code.kind == .master {
+                        restButton
+                    } else if code.kind == .guess {
                         guessButton
                     }
                 }
+            
+        }
+    }
+    
+    
+    
+    
+    func color(for peg: String) -> Color? {
+        switch peg.lowercased() {
+        case "red": return .red
+        case "blue": return .blue
+        case "yellow": return .yellow
+        case "green": return .green
+        case "purple": return .purple
+        case "orange": return .orange
+        case "clear": return .clear
+        default: return nil
         }
     }
 }
