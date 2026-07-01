@@ -11,6 +11,7 @@ struct CodeBreakerView: View {
     @State var game: CodeBreaker = CodeBreaker()
     var body: some View {
         VStack{
+            
             view(for: game.masterCode)
             
             ScrollView {
