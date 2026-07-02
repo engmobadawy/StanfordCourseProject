@@ -8,79 +8,122 @@
 import SwiftUI
 
 struct CodeBreakerView: View {
-    @State var game: CodeBreaker = CodeBreaker()
+    @State private var game: CodeBreaker = CodeBreaker()
+    @State private var selection: Int = 0
     var body: some View {
         VStack{
             
             view(for: game.masterCode)
             
             ScrollView {
-                view(for: game.guess)
+                if !game.isOver {
+                    view(for: game.guess)
+                }
                 
-                ForEach(game.attempts.indices.reversed(), id: \.self, content: { index in
+                ForEach(game.attempts.indices.reversed(), id: \.self) { index in
                     view(for: game.attempts[index])
-                })
+                }
+            }
+            
+            PegChooser(choices: game.pegChoices) { peg in
+                game.setGuessPeg(peg, at: selection)
+                
+                // 1. Search for the lowest index that is still empty
+                if let firstEmptyIndex = game.guess.pegs.firstIndex(of: Code.missingPeg) {
+                    selection = firstEmptyIndex
+                } else {
+                    // 2. Fallback if full: cycle sequentially
+                    selection = (selection + 1) % game.pegCount
+                }
             }
         }
         .padding()
     }
     
+//    var guessButton: some View {
+//        Button {
+//            withAnimation {
+//                game.attemptGuess()
+//                selection = 0
+//            }
+//        } label: {
+//            Text("Guess")
+//        }
+//        .font(.system(size: GuessButton.maximumFontSize))
+//        .minimumScaleFactor(GuessButton.scaleFactor)
+//    }
+    
     var guessButton: some View {
-        Button("Guess") {
-            withAnimation {
-                game.attemptGuess()
+            Button {
+                withAnimation {
+                    // 1. Check if there is an empty peg slot
+                    if let firstEmptyIndex = game.guess.pegs.firstIndex(of: Code.missingPeg) {
+                        // 2. Snap the UI selection to the empty slot so the user knows to fill it
+                        selection = firstEmptyIndex
+                    } else {
+                        // 3. If full, submit the guess and reset selection for the new turn
+                        game.attemptGuess()
+                        selection = 0
+                    }
+                }
+            } label: {
+                Text("Guess")
             }
+            .font(.system(size: GuessButton.maximumFontSize))
+            .minimumScaleFactor(GuessButton.scaleFactor)
         }
-        .font(.system(size: 80))
-        .minimumScaleFactor(0.1)
-    }
     
     var restButton: some View {
-        Button("Rest") {
+        
+        Button {
             withAnimation {
-                game.rest()
+                game.restTheGame()
+                selection = 0
             }
+        } label: {
+            Text("Rest")
         }
-        .font(.system(size: 80))
-        .minimumScaleFactor(0.1)
+        .font(.system(size: GuessButton.maximumFontSize))
+        .minimumScaleFactor(GuessButton.scaleFactor)
     }
     func view(for code: Code) -> some View {
         HStack {
-            ForEach(code.pegs.indices, id: \.self, content: { index in
-                RoundedRectangle(cornerRadius: 10)
-                    .foregroundStyle(color(for: code.pegs[index]) ?? .clear)
-                    .overlay {
-                        if code.pegs[index] == Code.missingPeg {
-                            RoundedRectangle(cornerRadius: 10).strokeBorder(Color.gray)
-                        }else if color(for: code.pegs[index]) == nil {
-                             Circle()
-                                .fill(Color.clear)
-                                .overlay(
-                                    Text(code.pegs[index])
-                                        .font(.system(size: 120))
-                                        .minimumScaleFactor(9.0 / 120.0)
-                                )
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .aspectRatio(1, contentMode: .fit)
-                  
-                    .onTapGesture {
-                        if code.kind == .guess {
-                            game.changeGuessPeg(at: index)
-                        }
-                    }
-            })
+//            ForEach(code.pegs.indices, id: \.self, content: { index in
+//                RoundedRectangle(cornerRadius: 10)
+//                    .foregroundStyle(color(for: code.pegs[index]) ?? .clear)
+//                    .overlay {
+//                        if code.pegs[index] == Code.missingPeg {
+//                            RoundedRectangle(cornerRadius: 10).strokeBorder(Color.gray)
+//                        }else if color(for: code.pegs[index]) == nil {
+//                             Circle()
+//                                .fill(Color.clear)
+//                                .overlay(
+//                                    Text(code.pegs[index])
+//                                        .font(.system(size: 120))
+//                                        .minimumScaleFactor(9.0 / 120.0)
+//                                )
+//                        }
+//                    }
+//                    .contentShape(Rectangle())
+//                    .aspectRatio(1, contentMode: .fit)
+//                  
+//                    .onTapGesture {
+//                        if code.kind == .guess {
+//                            game.changeGuessPeg(at: index)
+//                        }
+//                    }
+//            })
 
-            
+            CodeView(code: code, selection: $selection)
             Rectangle().foregroundStyle(Color.clear).aspectRatio(contentMode: .fit)
+//            Color.clear.aspectRatio(1, contentMode: .fit)
                 .overlay{
                     if let matches = code.matches {
                         MatchMakers(matches: matches)
                             
                                  
                             }
-                    if code.kind == .master {
+                    if code.kind == .master(isHidden: false) {
                        restButton
                    } else if code.kind == .guess {
                        guessButton
@@ -93,15 +136,27 @@ struct CodeBreakerView: View {
     
     
     
-    func color(for peg: String) -> Color? {
-        switch peg.lowercased() {
-        case "red": return .red
-        case "blue": return .blue
-        case "yellow": return .yellow
-        case "green": return .green
-        case "purple": return .purple
-        case "orange": return .orange
-        case "clear": return .clear
+    
+    
+    struct GuessButton {
+        static let minimumFontSize: CGFloat = 8
+        static let maximumFontSize: CGFloat = 80
+        static let scaleFactor: CGFloat = minimumFontSize / maximumFontSize
+    }
+}
+
+
+
+extension Color {
+    init?(pegName: String) {
+        switch pegName.lowercased() {
+        case "red": self = .red
+        case "blue": self = .blue
+        case "yellow": self = .yellow
+        case "green": self = .green
+        case "purple": self = .purple
+        case "orange": self = .orange
+        case "clear": self = .clear
         default: return nil
         }
     }
