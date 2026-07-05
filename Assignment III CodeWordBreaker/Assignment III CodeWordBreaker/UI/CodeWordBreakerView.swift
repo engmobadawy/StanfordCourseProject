@@ -14,9 +14,13 @@ struct CodeWordBreakerView: View {
     // MARK: Data Owned by Me
     @State private var game: CodeWordBreaker = CodeWordBreaker()
     @State private var selection: Int = 0
+    
+    // NEW: State for highlighting and preventing double-taps
+    @State private var highlightedIndices: [Int] = []
+    @State private var isChecking: Bool = false
+    
     var body: some View {
-        VStack{
-            
+        VStack {
             view(for: game.masterCode)
             
             ScrollView {
@@ -29,7 +33,7 @@ struct CodeWordBreakerView: View {
                 }
             }
             
-            PegChooser(/*choices: game.pegChoices*/) { peg in
+            PegChooser { peg in
                 game.setGuessPeg(peg, at: selection)
                 
                 // 1. Search for the lowest index that is still empty
@@ -42,129 +46,95 @@ struct CodeWordBreakerView: View {
             }
         }
         .padding()
-        
-        .onChange(of: words.count, initial: true) { _,_  in
-            
-                
-    
-                    game.masterCode.word = words.random(length: game.pegCount) ?? String(repeating: "E", count: game.pegCount)
-                    
-                    print("\(game.masterCode.word) ")
-                
-            
+        .onChange(of: words.count, initial: true) { _, _ in
+            game.masterCode.word = words.random(length: game.pegCount) ?? String(repeating: "E", count: game.pegCount)
+            print("\(game.masterCode.word) ")
         }
     }
     
-//    var guessButton: some View {
-//        Button {
-//            withAnimation {
-//                game.attemptGuess()
-//                selection = 0
-//            }
-//        } label: {
-//            Text("Guess")
-//        }
-//        .font(.system(size: GuessButton.maximumFontSize))
-//        .minimumScaleFactor(GuessButton.scaleFactor)
-//    }
-    
     var guessButton: some View {
-            Button {
-                withAnimation {
-                    // 1. Check if there is an empty peg slot
-                    if let firstEmptyIndex = game.guess.pegs.firstIndex(of: Code.missingPeg) {
-                        // 2. Snap the UI selection to the empty slot so the user knows to fill it
-                        selection = firstEmptyIndex
-                    } else {
-                        // 3. If full, submit the guess and reset selection for the new turn
-                        game.attemptGuess()
-                        selection = 0
-                    }
-                }
-            } label: {
-                Text("Guess")
+        Button {
+            // 1. Check if there is an empty peg slot
+            if let firstEmptyIndex = game.guess.pegs.firstIndex(of: Code.missingPeg) {
+                withAnimation { selection = firstEmptyIndex }
+            } else {
+                // 2. Call the new animation-delayed function
+                submitGuessWithAnimationDelay()
             }
-            .font(.system(size: GuessButton.maximumFontSize))
-            .minimumScaleFactor(GuessButton.scaleFactor)
+        } label: {
+            Text("Guess")
         }
+        .font(.system(size: GuessButton.maximumFontSize))
+        .minimumScaleFactor(GuessButton.scaleFactor)
+        .disabled(isChecking) // NEW: Disable while animating
+    }
     
-    // CodeWordBreakerView.swift
-
-        var resetButton: some View {
-            Button {
-                withAnimation {
-                    game.resetTheGame()
-                    selection = 0
-                    
-                   
-                    game.masterCode.word = words.random(length: game.pegCount) ?? String(repeating: "E", count: game.pegCount)
-                        print("New word generated: \(game.masterCode.word)")
-                    
-                }
-            } label: {
-                Text("Reset")
+    var resetButton: some View {
+        Button {
+            withAnimation {
+                game.resetTheGame()
+                selection = 0
+                game.masterCode.word = words.random(length: game.pegCount) ?? String(repeating: "E", count: game.pegCount)
+                print("New word generated: \(game.masterCode.word)")
             }
-            .font(.system(size: GuessButton.maximumFontSize))
-            .minimumScaleFactor(GuessButton.scaleFactor)
+        } label: {
+            Text("Reset")
         }
+        .font(.system(size: GuessButton.maximumFontSize))
+        .minimumScaleFactor(GuessButton.scaleFactor)
+    }
+    
+    // NEW: Calculate matches, animate highlight for 1 second, then submit
+    private func submitGuessWithAnimationDelay() {
+        isChecking = true
+        
+        let matches = game.guess.match(against: game.masterCode)
+        let exactIndices = matches.enumerated().compactMap { index, match in
+            match == .exact ? index : nil
+        }
+        
+        // Trigger the highlight with a 1-second duration
+        withAnimation(.easeInOut(duration: 1.0)) {
+            highlightedIndices = exactIndices
+        } completion: {
+            // This block fires automatically when the 1-second animation completes
+            withAnimation {
+                highlightedIndices = []
+                game.attemptGuess()
+                selection = 0
+                isChecking = false
+            }
+        }
+    }
     
     func view(for code: Code) -> some View {
         HStack {
-//            ForEach(code.pegs.indices, id: \.self, content: { index in
-//                RoundedRectangle(cornerRadius: 10)
-//                    .foregroundStyle(color(for: code.pegs[index]) ?? .clear)
-//                    .overlay {
-//                        if code.pegs[index] == Code.missingPeg {
-//                            RoundedRectangle(cornerRadius: 10).strokeBorder(Color.gray)
-//                        }else if color(for: code.pegs[index]) == nil {
-//                             Circle()
-//                                .fill(Color.clear)
-//                                .overlay(
-//                                    Text(code.pegs[index])
-//                                        .font(.system(size: 120))
-//                                        .minimumScaleFactor(9.0 / 120.0)
-//                                )
-//                        }
-//                    }
-//                    .contentShape(Rectangle())
-//                    .aspectRatio(1, contentMode: .fit)
-//                  
-//                    .onTapGesture {
-//                        if code.kind == .guess {
-//                            game.changeGuessPeg(at: index)
-//                        }
-//                    }
-//            })
-
-            CodeView(code: code, selection: $selection)
+            
+            CodeView(
+                code: code,
+                selection: $selection,
+                highlightedIndices: code.kind == .guess ? highlightedIndices : []
+            )
+            
             Rectangle().foregroundStyle(Color.clear).aspectRatio(contentMode: .fit)
-//            Color.clear.aspectRatio(1, contentMode: .fit)
                 .overlay {
-                        switch code.kind {
-                                    case .master:
-                                        resetButton
-                                    case .guess:
-                                        guessButton
-                                    default:
-                                        EmptyView()
-                                    }
-                                }
+                    switch code.kind {
+                    case .master:
+                        resetButton
+                    case .guess:
+                        guessButton
+                    default:
+                        EmptyView()
+                    }
                 }
-        
+        }
     }
-    
-    
-    
-    
-    
     
     struct GuessButton {
         static let minimumFontSize: CGFloat = 8
         static let maximumFontSize: CGFloat = 80
         static let scaleFactor: CGFloat = minimumFontSize / maximumFontSize
     }
-    
-    
 }
 
 

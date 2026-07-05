@@ -14,11 +14,12 @@ struct CodeView: View {
     
     //MARK: - Data Shared with me
     @Binding var selection: Int
+    var highlightedIndices: [Int] = []
 
     //MARK: - Body
     var body: some View {
         ForEach(code.pegs.indices, id: \.self) { index in
-            PegView(peg: code.pegs[index])
+            PegView(peg: code.pegs[index],isHighlighted: highlightedIndices.contains(index))
                 .padding(Selection.border)
                 .background {
                     if selection == index, code.kind == .guess {
