@@ -44,7 +44,7 @@ enum Match {
     var inexactColor: String = "#66FFFF00"
     var noMatchColor: String = "#66808080"
     
-    init(name: String, pegCount: Int = Int.random(in: 5...5)) {
+    init(name: String, pegCount: Int = 5) {
         self.name = name
         self.pegCount = pegCount
         self.masterCode = Code(kind: .master(isHidden: true), pegCount: pegCount)

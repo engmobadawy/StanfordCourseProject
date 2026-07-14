@@ -1,23 +1,20 @@
-//
-//  GameList.swift
-//  CodeBreaker
-//
-//
-
 import SwiftUI
 
 struct GameList: View {
-    // MARK: Data Shared with Me
     @Binding var selection: CodeWordBreaker?
     
-    // MARK: Data Owned by Me
+    @AppStorage("defaultPegCount") private var defaultPegCount: Int = 5
+    @AppStorage("defaultExactColor") private var defaultExactColor: String = "#6600FF00"
+    @AppStorage("defaultInexactColor") private var defaultInexactColor: String = "#66FFFF00"
+    @AppStorage("defaultNoMatchColor") private var defaultNoMatchColor: String = "#66808080"
+    
     @State private var games: [CodeWordBreaker] = []
     
-    // Used to track which game is being edited so we can replace it upon save
+   
     @State private var gameToEdit: CodeWordBreaker?
-    
-    // The stable draft object bound directly to the sheet
     @State private var draftGame: CodeWordBreaker?
+    
+    @State private var showingSettings: Bool = false
     
     var body: some View {
         List(selection: $selection) {
@@ -33,83 +30,110 @@ struct GameList: View {
                     editButton(for: game).tint(.accentColor)
                 }
             }
-            .onDelete { offsets in
-                games.remove(atOffsets: offsets)
-            }
-            .onMove { offsets, destination in
-                games.move(fromOffsets: offsets, toOffset: destination)
-            }
-        }
-        .onChange(of: games) { _, _ in
-            if let selection, !games.contains(selection) {
-                self.selection = nil
-            }
+            .onDelete(perform: deleteGames)
+            .onMove(perform: moveGames)
         }
         .listStyle(.plain)
         .toolbar {
-            addButton
-            EditButton()
+            ToolbarItem(placement: .navigation) {
+                Button("Settings", systemImage: "gear", action: showSettings)
+            }
+            
+            ToolbarItem(placement: .primaryAction) {
+                HStack {
+                    addButton
+                    EditButton()
+                }
+            }
         }
-        .onAppear { addSampleGames() }
         .sheet(item: $draftGame) { draft in
             GameEditor(game: draft) {
                 saveDraft(draft)
             }
         }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
     }
     
+    // MARK: - View Components
+    
     var addButton: some View {
-        Button("Add Game", systemImage: "plus") {
-            gameToEdit = nil // Clear reference since this is a new game
-            draftGame = CodeWordBreaker(name: "Untitled", pegCount: 5)
-        }
+        Button("Add Game", systemImage: "plus", action: handleAddGame)
     }
     
     func editButton(for game: CodeWordBreaker) -> some View {
         Button("Edit", systemImage: "pencil") {
-            gameToEdit = game // Keep track of the original
-            
-            // Create the standalone draft once
-            let copy = CodeWordBreaker(name: game.name, pegCount: game.pegCount)
-            copy.exactColor = game.exactColor
-            copy.inexactColor = game.inexactColor
-            copy.noMatchColor = game.noMatchColor
-            copy.pegChoices = game.pegChoices
-            
-            draftGame = copy
+            handleEditGame(game)
         }
     }
     
     func deleteButton(for game: CodeWordBreaker) -> some View {
         Button("Delete", systemImage: "minus.circle", role: .destructive) {
-            withAnimation {
-                games.removeAll { $0 == game }
-            }
+            handleDeleteGame(game)
         }
     }
+    
+    // MARK: - Action Handlers
+    
+    private func handleAddGame() {
+        gameToEdit = nil // Clear out any old reference
+        
+        let newGame = CodeWordBreaker(name: "Untitled", pegCount: defaultPegCount)
+        newGame.exactColor = defaultExactColor
+        newGame.inexactColor = defaultInexactColor
+        newGame.noMatchColor = defaultNoMatchColor
+        
+        draftGame = newGame
+    }
+    
+    private func handleEditGame(_ game: CodeWordBreaker) {
+        gameToEdit = game // Remember which live game we are editing
+        
+        // Create a COPY so changes aren't live. This protects against "Cancel".
+        let copy = CodeWordBreaker(name: game.name, pegCount: game.pegCount)
+        copy.exactColor = game.exactColor
+        copy.inexactColor = game.inexactColor
+        copy.noMatchColor = game.noMatchColor
+        
+        draftGame = copy
+    }
+    
+    private func handleDeleteGame(_ game: CodeWordBreaker) {
+        withAnimation {
+            games.removeAll { $0 == game }
+        }
+    }
+    
+    private func deleteGames(at offsets: IndexSet) {
+        games.remove(atOffsets: offsets)
+    }
+    
+    private func moveGames(from source: IndexSet, to destination: Int) {
+        games.move(fromOffsets: source, toOffset: destination)
+    }
+    
+    private func showSettings() {
+        showingSettings = true
+    }
+    
+    // MARK: - Save Logic
     
     private func saveDraft(_ draft: CodeWordBreaker) {
         if let gameToEdit, let index = games.firstIndex(of: gameToEdit) {
-            // Update existing game
-            games[index] = draft
+            // User hit "Done" on an existing game. Copy the draft changes over.
+            games[index].name = draft.name
+            games[index].pegCount = draft.pegCount
+            games[index].exactColor = draft.exactColor
+            games[index].inexactColor = draft.inexactColor
+            games[index].noMatchColor = draft.noMatchColor
         } else {
-            // Insert new game
+            // User hit "Done" on a brand new game.
             games.insert(draft, at: 0)
         }
         
-        // Clean up state
+        // Clean up
         gameToEdit = nil
         draftGame = nil
-    }
-    
-    func addSampleGames() {
-        // Add sample game logic here if needed
-    }
-}
-
-#Preview {
-    @Previewable @State var selection: CodeWordBreaker?
-    NavigationStack {
-        GameList(selection: $selection)
     }
 }

@@ -78,7 +78,7 @@ struct GameEditor: View {
                             showInvalidGameAlert = false
                         }
                     } message: {
-                        Text("A game must have a name and more than one unique peg.")
+                        Text("A game must have a name")
                     }
                 }
             }
