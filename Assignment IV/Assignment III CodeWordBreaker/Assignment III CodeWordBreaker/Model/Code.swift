@@ -7,33 +7,38 @@
 
 
 import Foundation
+import SwiftData
 
-struct Code {
-    var kind: Kind
+@Model class Code {
+    var _kind: String = Kind.unknown.description
+    var timestamp = Date.now
+   
+    var kind: Kind {
+        get { return Kind(_kind) }
+        set { _kind = newValue.description }
+    }
     var pegs: [Peg]
-    let pegCount: Int
-    
+    var pegCount: Int
+   
     var word: String {
      get { pegs.joined() }
      set { pegs = newValue.map { String($0) } }
      } 
-    
+
     static let missingPeg: Peg = "clear"
     init(kind: Kind , pegCount : Int) {
-        self.kind = kind
+  
         self.pegCount = pegCount
         self.pegs = Array(repeating: Code.missingPeg, count: pegCount)
+        self.kind = kind
         
     }
     
-    enum Kind: Equatable {
-        case master(isHidden: Bool)
-        case guess
-        case attempt([Match])
-        case unknown
-    }
     
-    mutating func randomize(from pegChoices: [Peg]) {
+    
+   
+    
+     func randomize(from pegChoices: [Peg]) {
         for index in pegs.indices {
             pegs[index] = pegChoices.randomElement() ?? Code.missingPeg
         }
@@ -47,7 +52,7 @@ struct Code {
         }
     }
     
-    mutating func reset() {
+     func reset() {
         pegs = Array(repeating: Code.missingPeg, count: pegCount)
     }
     
@@ -58,28 +63,6 @@ struct Code {
         }
     }
     
-//    func match(against otherCode: Code) -> [Match] {
-//        var results: [Match] = Array(repeating: .noMatch, count: pegs.count)
-//        var pegsToMatch = otherCode.pegs
-//        
-//        for index in pegs.indices.reversed() {
-//            if pegsToMatch.count > index, pegsToMatch[index] == pegs[index] {
-//                results[index] = .exact
-//                pegsToMatch.remove(at: index)
-//            }
-//        }
-//        
-//        for index in pegs.indices {
-//            if results[index] != .exact {
-//                if let matchIndex = pegsToMatch.firstIndex(of: pegs[index]) {
-//                    results[index] = .inexact
-//                    pegsToMatch.remove(at: matchIndex)
-//                }
-//            }
-//        }
-//        
-//        return results
-//    }
     
     func match(against otherCode: Code) -> [Match] {
     var pegsToMatch = otherCode.pegs
@@ -104,4 +87,13 @@ struct Code {
         }
     }
     }
+    
+    
+}
+
+
+enum Match: String {
+    case noMatch
+    case exact
+    case inexact
 }

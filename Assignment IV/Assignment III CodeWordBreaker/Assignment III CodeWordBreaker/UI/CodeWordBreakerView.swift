@@ -158,37 +158,7 @@ struct CodeWordBreakerView: View {
     }
 }
 
-extension View {
-    func trackElapsedTime(in game: CodeWordBreaker) -> some View {
-        self.modifier(ElapsedTimeTracker(game: game))
-    }
-}
 
-struct ElapsedTimeTracker: ViewModifier {
-    @Environment(\.scenePhase) var scenePhase
-    let game: CodeWordBreaker
-    
-    func body(content: Content) -> some View {
-        content
-            .onAppear {
-                game.startTimer()
-            }
-            .onDisappear {
-                game.pauseTimer()
-            }
-            .onChange(of: game) { oldGame, newGame in
-                oldGame.pauseTimer()
-                newGame.startTimer()
-            }
-            .onChange(of: scenePhase) {
-                switch scenePhase {
-                case .active: game.startTimer()
-                case .background: game.pauseTimer()
-                default: break
-                }
-            }
-    }
-}
 
 extension Color {
     init?(pegName: String) {

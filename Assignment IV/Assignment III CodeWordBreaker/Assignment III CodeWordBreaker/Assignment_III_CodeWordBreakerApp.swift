@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct Assignment_III_CodeWordBreakerApp: App {
@@ -13,6 +14,7 @@ struct Assignment_III_CodeWordBreakerApp: App {
         WindowGroup {
             
             GameChooser()
+                .modelContainer(for: CodeWordBreaker.self)
         }
     }
 }

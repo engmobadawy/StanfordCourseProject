@@ -1,24 +1,63 @@
 import SwiftUI
+import SwiftData
 
 struct GameList: View {
     @Binding var selection: CodeWordBreaker?
+    let searchText: String
     
     @AppStorage("defaultPegCount") private var defaultPegCount: Int = 5
     @AppStorage("defaultExactColor") private var defaultExactColor: String = "#6600FF00"
     @AppStorage("defaultInexactColor") private var defaultInexactColor: String = "#66FFFF00"
     @AppStorage("defaultNoMatchColor") private var defaultNoMatchColor: String = "#66808080"
     
-    @State private var games: [CodeWordBreaker] = []
+    @Environment(\.modelContext) var modelContext
+    @Query private var games: [CodeWordBreaker]
     
-   
     @State private var gameToEdit: CodeWordBreaker?
     @State private var draftGame: CodeWordBreaker?
-    
     @State private var showingSettings: Bool = false
+    
+    enum SortOption: CaseIterable {
+        case name
+        case recent
+        case completed
+        
+        var title: String {
+            switch self {
+            case .name: "Sort by Name"
+            case .recent: "Recent"
+            case .completed: "Completed"
+            }
+        }
+    }
+    
+    init(sortBy: SortOption = .name, searchText: String = "", selection: Binding<CodeWordBreaker?>) {
+        _selection = selection
+        self.searchText = searchText
+        
+        let completedOnly = sortBy == .completed
+        
+        // SwiftData handles the basic completion filter at the database level
+        let predicate = #Predicate<CodeWordBreaker> { game in
+            (!completedOnly || game.isOver)
+        }
+        
+        switch sortBy {
+        case .name: _games = Query(filter: predicate, sort: \CodeWordBreaker.name)
+        case .recent, .completed: _games = Query(filter: predicate, sort: \CodeWordBreaker.lastAttemptDate, order: .reverse)
+        }
+    }
+    
+    // MARK: - Filtered Results
+    
+    // The view simply asks the model for the matching logic
+    var searchResults: [CodeWordBreaker] {
+        games.filter { $0.matches(search: searchText) }
+    }
     
     var body: some View {
         List(selection: $selection) {
-            ForEach(games) { game in
+            ForEach(searchResults) { game in
                 NavigationLink(value: game) {
                     GameSummary(game: game)
                 }
@@ -31,14 +70,12 @@ struct GameList: View {
                 }
             }
             .onDelete(perform: deleteGames)
-            .onMove(perform: moveGames)
         }
         .listStyle(.plain)
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button("Settings", systemImage: "gear", action: showSettings)
             }
-            
             ToolbarItem(placement: .primaryAction) {
                 HStack {
                     addButton
@@ -77,40 +114,34 @@ struct GameList: View {
     // MARK: - Action Handlers
     
     private func handleAddGame() {
-        gameToEdit = nil // Clear out any old reference
-        
+        gameToEdit = nil
         let newGame = CodeWordBreaker(name: "Untitled", pegCount: defaultPegCount)
         newGame.exactColor = defaultExactColor
         newGame.inexactColor = defaultInexactColor
         newGame.noMatchColor = defaultNoMatchColor
-        
         draftGame = newGame
     }
     
     private func handleEditGame(_ game: CodeWordBreaker) {
-        gameToEdit = game // Remember which live game we are editing
-        
-        // Create a COPY so changes aren't live. This protects against "Cancel".
+        gameToEdit = game
         let copy = CodeWordBreaker(name: game.name, pegCount: game.pegCount)
         copy.exactColor = game.exactColor
         copy.inexactColor = game.inexactColor
         copy.noMatchColor = game.noMatchColor
-        
         draftGame = copy
     }
     
     private func handleDeleteGame(_ game: CodeWordBreaker) {
         withAnimation {
-            games.removeAll { $0 == game }
+            modelContext.delete(game)
         }
     }
     
     private func deleteGames(at offsets: IndexSet) {
-        games.remove(atOffsets: offsets)
-    }
-    
-    private func moveGames(from source: IndexSet, to destination: Int) {
-        games.move(fromOffsets: source, toOffset: destination)
+        for offset in offsets {
+            let gameToDelete = searchResults[offset]
+            modelContext.delete(gameToDelete)
+        }
     }
     
     private func showSettings() {
@@ -120,19 +151,23 @@ struct GameList: View {
     // MARK: - Save Logic
     
     private func saveDraft(_ draft: CodeWordBreaker) {
+        draft.applyPegCountChange()
+        
         if let gameToEdit, let index = games.firstIndex(of: gameToEdit) {
-            // User hit "Done" on an existing game. Copy the draft changes over.
             games[index].name = draft.name
-            games[index].pegCount = draft.pegCount
+            
+            if games[index].pegCount != draft.pegCount {
+                games[index].pegCount = draft.pegCount
+                games[index].applyPegCountChange()
+            }
+            
             games[index].exactColor = draft.exactColor
             games[index].inexactColor = draft.inexactColor
             games[index].noMatchColor = draft.noMatchColor
         } else {
-            // User hit "Done" on a brand new game.
-            games.insert(draft, at: 0)
+            modelContext.insert(draft)
         }
         
-        // Clean up
         gameToEdit = nil
         draftGame = nil
     }

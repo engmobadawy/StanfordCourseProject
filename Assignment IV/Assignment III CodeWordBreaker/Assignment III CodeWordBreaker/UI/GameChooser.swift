@@ -6,23 +6,32 @@
 //
 
 
-//
-//  GameChooser.swift
-//  CodeBreaker
-//
-//  Created by CS193p Instructor on 4/30/25.
-//
+
 
 import SwiftUI
 
 struct GameChooser: View {
-    // MARK: Data Owned by Me    
+    // MARK: Data Owned by Me
     @State private var selection: CodeWordBreaker? = nil
     
+    @State private var sortOption: GameList.SortOption = .name
+    @State private var search: String = ""
+
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
-            GameList(selection: $selection)
-                .navigationTitle("CodeWordBreaker")
+            Picker("Sort By", selection: $sortOption.animation(.default)) {
+                ForEach(GameList.SortOption.allCases, id: \.self) { option in
+                    Text(option.title)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+            
+           
+            GameList(sortBy: sortOption, searchText: search, selection: $selection)
+                .navigationTitle("Code Breaker")
+                .searchable(text: $search)
+                .animation(.easeOut, value: search)
         } detail: {
             if let selection {
                 CodeWordBreakerView(game: selection)
@@ -34,8 +43,4 @@ struct GameChooser: View {
         }
         .navigationSplitViewStyle(.balanced)
     }
-}
-
-#Preview {
-    GameChooser()
 }
